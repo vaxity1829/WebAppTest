@@ -5,6 +5,6 @@
 
 window.APP_CONFIG = {
   GOOGLE_CLIENT_ID: "YOUR_CLIENT_ID.apps.googleusercontent.com",
-  SHEETS_API_URL: "",
+  SHEETS_API_URL: "https://script.google.com/macros/s/AKfycbwNr1XWNacMnss7bJuiBSRiX_jtIgSly-LU_KTvVjJx7HpEdaSBRGU8UrmNPCngrhTEDQ/exec",
   APP_NAME: "ห้องพักครู",
 };
