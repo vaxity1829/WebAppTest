@@ -7,8 +7,13 @@
 
 var SHEET_TEACHERS = 'Teachers';
 var SHEET_NOTES = 'Notes';
+var SHEET_ANNOUNCEMENTS = 'Announcements';
 var TEACHER_HEADERS = ['id', 'name', 'subject', 'room', 'theme', 'tagline', 'quote', 'bio', 'officeHours', 'since', 'factLabel', 'factValue', 'initials', 'ownerEmail', 'createdAt'];
 var NOTE_HEADERS = ['id', 'teacherId', 'title', 'body', 'x', 'y', 'createdAt'];
+// Edit announcements directly in this sheet tab — no code changes needed.
+// active: TRUE to show it, FALSE (or blank) to hide it without deleting the row.
+// order: lower numbers show first. id: anything unique, e.g. a1, a2.
+var ANNOUNCEMENT_HEADERS = ['id', 'message', 'active', 'order'];
 
 function getSheet_(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -41,12 +46,16 @@ function jsonOutput_(obj) {
 function doGet(e) {
   var teacherSheet = getSheet_(SHEET_TEACHERS, TEACHER_HEADERS);
   var noteSheet = getSheet_(SHEET_NOTES, NOTE_HEADERS);
+  var announceSheet = getSheet_(SHEET_ANNOUNCEMENTS, ANNOUNCEMENT_HEADERS);
   var teachers = sheetToObjects_(teacherSheet).map(function (t) {
     try { t.bio = t.bio ? JSON.parse(t.bio) : []; } catch (err) { t.bio = []; }
     return t;
   });
   var notes = sheetToObjects_(noteSheet);
-  return jsonOutput_({ teachers: teachers, notes: notes });
+  var announcements = sheetToObjects_(announceSheet)
+    .filter(function (a) { return a.active === true || String(a.active).toUpperCase() === 'TRUE'; })
+    .sort(function (a, b) { return (Number(a.order) || 0) - (Number(b.order) || 0); });
+  return jsonOutput_({ teachers: teachers, notes: notes, announcements: announcements });
 }
 
 function doPost(e) {
