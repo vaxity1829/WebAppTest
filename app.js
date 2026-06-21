@@ -28,6 +28,15 @@ function IconArrowLeft({ size = 14 }) {
     </svg>
   );
 }
+function IconAnnounce({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="square">
+      <line x1="2" y1="4" x2="9" y2="4" />
+      <line x1="2" y1="8" x2="14" y2="8" />
+      <line x1="2" y1="12" x2="6" y2="12" />
+    </svg>
+  );
+}
 
 /* ---------------------------------------------------------
    Helpers
@@ -120,7 +129,6 @@ button, input, textarea { border-radius: 0 !important; -webkit-appearance: none;
 }
 
 .fr-topbar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 32px; border-bottom: 1px solid var(--rule); background: var(--ink); flex-wrap: wrap; }
-.fr-topbar-mark { font-family: var(--font-label); font-size: 12px; letter-spacing: .1em; color: var(--house); }
 .fr-topbar-auth { display: flex; align-items: center; gap: 14px; }
 .fr-topbar-offline { font-family: var(--font-label); font-size: 11px; color: var(--chalk-muted); border: 1px solid var(--rule); padding: 5px 10px; }
 .fr-topbar-user { display: flex; align-items: center; gap: 10px; font-family: var(--font-label); font-size: 12.5px; color: var(--chalk-muted); }
@@ -244,8 +252,32 @@ button, input, textarea { border-radius: 0 !important; -webkit-appearance: none;
   .fr-field-row { grid-template-columns: 1fr; }
 }
 
+.fr-dust-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+.fr-dust { position: absolute; filter: blur(34px); background: radial-gradient(circle, rgba(36,89,168,.08), transparent 70%); animation: frFloat 22s ease-in-out infinite; }
+@keyframes frFloat { 0%,100% { transform: translate(0,0); } 50% { transform: translate(18px,-26px); } }
+
+.fr-billboard { position: relative; z-index: 2; display: flex; align-items: center; gap: 14px; background: var(--house); color: #fff; padding: 12px 32px; font-family: var(--font-label); font-size: 13.5px; }
+.fr-billboard-track { flex: 1; position: relative; overflow: hidden; height: 20px; }
+.fr-billboard-msg { position: absolute; inset: 0; margin: 0; display: flex; align-items: center; animation: frBillboardIn .5s cubic-bezier(.16,1,.3,1) both; }
+@keyframes frBillboardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.fr-billboard-dots { display: flex; gap: 6px; flex: 0 0 auto; }
+.fr-billboard-dot { width: 6px; height: 6px; background: rgba(255,255,255,.4); border: none; padding: 0; cursor: pointer; transition: background .2s; }
+.fr-billboard-dot.fr-active { background: #fff; }
+
+.fr-topbar-mark { background: none; border: none; padding: 0; cursor: pointer; display: flex; align-items: center; height: 28px; }
+.fr-topbar-logo { height: 28px; width: auto; display: block; animation: frLogoIn .6s cubic-bezier(.16,1,.3,1) both; }
+.fr-topbar-mark-text { font-family: var(--font-label); font-size: 12px; letter-spacing: .1em; color: var(--house); }
+@keyframes frLogoIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+
+.fr-eyebrow::after { animation: frRuleGrow .8s cubic-bezier(.16,1,.3,1) .15s both; transform-origin: left; }
+@keyframes frRuleGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.fr-btn-primary:active { transform: scale(.97); }
+.fr-addnote-btn:active { transform: scale(.96); }
+.fr-card:active { transform: translateY(-3px) scale(.99); }
+
 @media (prefers-reduced-motion: reduce) {
-  .fr-card, .fr-addcard, .fr-profile-wrap, .fr-overlay, .fr-modal, .fr-note { animation: none !important; transition: none !important; }
+  .fr-card, .fr-addcard, .fr-profile-wrap, .fr-overlay, .fr-modal, .fr-note, .fr-dust, .fr-billboard-msg, .fr-topbar-logo, .fr-eyebrow::after { animation: none !important; transition: none !important; }
 }
 `;
 
@@ -253,10 +285,22 @@ button, input, textarea { border-radius: 0 !important; -webkit-appearance: none;
    Top bar (sign-in / sign-out)
 --------------------------------------------------------- */
 
-function TopBar({ user, signInRef, onSignOut, offline }) {
+function TopBar({ user, signInRef, onSignOut, offline, onLogoClick }) {
+  const [logoError, setLogoError] = useState(false);
   return (
     <div className="fr-topbar">
-      <span className="fr-topbar-mark">ห้องพักครู</span>
+      <button className="fr-topbar-mark" onClick={onLogoClick} aria-label="กลับหน้าแรก">
+        {logoError ? (
+          <span className="fr-topbar-mark-text">ห้องพักครู</span>
+        ) : (
+          <img
+            className="fr-topbar-logo"
+            src="logo.webp"
+            alt="ห้องพักครู"
+            onError={() => setLogoError(true)}
+          />
+        )}
+      </button>
       <div className="fr-topbar-auth">
         {offline && <span className="fr-topbar-offline">โหมดออฟไลน์ — ข้อมูลยังไม่ถูกบันทึกถาวร</span>}
         {user ? (
@@ -269,6 +313,44 @@ function TopBar({ user, signInRef, onSignOut, offline }) {
           <div ref={signInRef} />
         )}
       </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   Billboard (rotating announcements, edited from the Sheet)
+--------------------------------------------------------- */
+
+function Billboard({ items }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!items || items.length < 2) return;
+    const timer = setInterval(() => setIndex((i) => (i + 1) % items.length), 6000);
+    return () => clearInterval(timer);
+  }, [items]);
+
+  if (!items || items.length === 0) return null;
+  const current = items[Math.min(index, items.length - 1)];
+
+  return (
+    <div className="fr-billboard">
+      <IconAnnounce size={14} />
+      <div className="fr-billboard-track">
+        <p key={current.id || index} className="fr-billboard-msg">{current.message}</p>
+      </div>
+      {items.length > 1 && (
+        <div className="fr-billboard-dots">
+          {items.map((it, i) => (
+            <button
+              key={it.id || i}
+              className={`fr-billboard-dot${i === index ? " fr-active" : ""}`}
+              onClick={() => setIndex(i)}
+              aria-label={`ประกาศที่ ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -674,6 +756,7 @@ function CreateModal({ user, submitting, onClose, onSubmit }) {
 function FacultyRoom() {
   const [teachers, setTeachers] = useState([]);
   const [notesByTeacher, setNotesByTeacher] = useState({});
+  const [announcements, setAnnouncements] = useState([]);
   const [view, setView] = useState("grid");
   const [selectedId, setSelectedId] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -696,6 +779,7 @@ function FacultyRoom() {
       grouped[n.teacherId].push({ ...n, x: Number(n.x) || 0, y: Number(n.y) || 0 });
     });
     setNotesByTeacher(grouped);
+    setAnnouncements(data.announcements || []);
   }
 
   async function loadFallback() {
@@ -824,7 +908,20 @@ function FacultyRoom() {
     <div className="fr-app">
       <style>{CSS}</style>
 
-      <TopBar user={user} signInRef={signInBtnRef} onSignOut={signOut} offline={offline} />
+      <div className="fr-dust-layer">
+        <div className="fr-dust" style={{ width: 260, height: 260, top: "4%", left: "8%" }} />
+        <div className="fr-dust" style={{ width: 200, height: 200, top: "32%", left: "82%", animationDelay: "3s" }} />
+        <div className="fr-dust" style={{ width: 220, height: 220, top: "72%", left: "18%", animationDelay: "6s" }} />
+      </div>
+
+      <TopBar
+        user={user}
+        signInRef={signInBtnRef}
+        onSignOut={signOut}
+        offline={offline}
+        onLogoClick={() => { setView("grid"); setSelectedId(null); }}
+      />
+      <Billboard items={announcements} />
       {notice && <p className="fr-notice">{notice}</p>}
 
       {view === "grid" && (
